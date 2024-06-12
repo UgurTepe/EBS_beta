@@ -82,13 +82,17 @@ class dt_new():
     def inner_func(self):
         return self.val
     
-class dt_new():
+class dt_const():
     def __init__(self,delta = 0.1,rng = 1,epsilon = 0.1):   
         self.max_sample = hoeffding_bound(delta,epsilon,rng)
         self.delta = delta
-        self.val = self.delta/np.log(self.max_sample*np.log(1.1))
+        self.arr = np.ceil((1.1**(np.arange(self.max_sample)))*5)
+        self.k_steps_höf = np.argmax(self.arr >= self.max_sample)-1
+
+        self.val = self.delta/self.k_steps_höf
     def inner_func(self):
-        return self.val       
+        return self.val  
+         
 class dt_gaus():
     def __init__(self,delta = 0.1,epsilon=0.1,rng=1):
         self.max_sample = hoeffding_bound(delta,epsilon,rng)/4
@@ -110,7 +114,7 @@ class eba_geo_marg():
         self.running_variance = [0]
         self.ct = []
         #self.dt_class = dt_class(delta = self.delta,epsilon = self.epsilon,rng = self.range_of_rndvar)
-        self.dt_class = dt_new(delta = self.delta,epsilon = self.epsilon,rng = self.range_of_rndvar)
+        self.dt_class = dt_const(delta = self.delta,epsilon = self.epsilon,rng = self.range_of_rndvar)
         self.dt = self.dt_class.inner_func
         self.dt_arr = []
         self.beta = beta
