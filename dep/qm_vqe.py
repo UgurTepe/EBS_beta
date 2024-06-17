@@ -145,6 +145,8 @@ def vqe_adam_h2(hamiltonian_coeff,delta = 0.1,eps_bern= 0.1,max_it = 500,alpha =
     energy = 0
     est_energy = 0
     variance = 0
+    est_variance = 0
+    momentum = 0
     energy_shifted_plus = 0
     energy_shifted_minus = 0
     grad1 = 0
@@ -155,12 +157,16 @@ def vqe_adam_h2(hamiltonian_coeff,delta = 0.1,eps_bern= 0.1,max_it = 500,alpha =
     arr_par1 = []
     arr_steps = []
     arr_höf = []
+    arr_grad1 = []
+    arr_momentum = []
     flag = False
     arr_max_flag = []
+    arr_epsilon = []
     # initialize adam optimizers
     adam = AdamOptimizer(par1, alpha=alpha)
 
     for i in range(max_it):
+        print("Step:",i,"...","Theta: ",par1)
         # set states to |01>
         # Apply circuit on state
         state_normal = circ(par1)
@@ -219,7 +225,9 @@ def vqe_adam_h2(hamiltonian_coeff,delta = 0.1,eps_bern= 0.1,max_it = 500,alpha =
         arr_steps.append(it_normal)
         arr_höf.append(max_sample)
         arr_max_flag.append(flag*1)
-        
+        arr_grad1.append(grad1)
+        arr_momentum.append(adam.get_momentum())
+        arr_epsilon.append(eps_bern)
         # Estimate the Gradient via SPSA method
         grad1 = (energy_shifted_plus-energy_shifted_minus) / (2*eps*rnd1)
         
@@ -230,9 +238,9 @@ def vqe_adam_h2(hamiltonian_coeff,delta = 0.1,eps_bern= 0.1,max_it = 500,alpha =
             break
         if np.abs(energy - E_corr) <= eps_bern:
             flag = True
-    return arr_par1, arr_energy,arr_var, arr_est_energy, arr_est_var, arr_steps, arr_höf,arr_max_flag
+    return arr_par1, arr_energy,arr_var, arr_est_energy, arr_est_var, arr_steps, arr_höf,arr_max_flag,arr_grad1,arr_momentum,arr_epsilon
 
-def vqe_adam_h2_test(hamiltonian_coeff,delta = 0.1,eps_bern= 0.1,max_it = 500,alpha = 0.1,eps = 0.1):
+def vqe_adam_h2_test(hamiltonian_coeff,delta = 0.1,eps_bern= 0.1,max_it = 500,alpha = 0.1,eps = 0.1,gamma1=1.25,gamma2=0.75):
     """
     Performs the Variational Quantum Eigensolver (VQE) algorithm using the Adam optimizer for a given Hamiltonian.
 
@@ -267,7 +275,10 @@ def vqe_adam_h2_test(hamiltonian_coeff,delta = 0.1,eps_bern= 0.1,max_it = 500,al
     est_energy = 0
     variance = 0
     est_variance = 0
-    est_variance_prev = 0
+    prev_momentum = 0
+    prev_par = 0
+    momentum = 0
+    momentum_memory = []
     energy_shifted_plus = 0
     energy_shifted_minus = 0
     grad1 = 0
@@ -278,12 +289,17 @@ def vqe_adam_h2_test(hamiltonian_coeff,delta = 0.1,eps_bern= 0.1,max_it = 500,al
     arr_par1 = []
     arr_steps = []
     arr_höf = []
+    arr_grad1 = []
+    arr_momentum = []
     flag = False
     arr_max_flag = []
+    arr_epsilon = []
+    adap_eps = eps_bern
     # initialize adam optimizers
     adam = AdamOptimizer(par1, alpha=alpha)
 
     for i in range(max_it):
+        print("Step:",i,"...","Theta: ",par1)
         # set states to |01>
         # Apply circuit on state
         state_normal = circ(par1)
@@ -298,19 +314,16 @@ def vqe_adam_h2_test(hamiltonian_coeff,delta = 0.1,eps_bern= 0.1,max_it = 500,al
         '''
         Loops for EBS algorithm
         '''
-        if i != 0:
-            if 0 < est_variance < 0.15:
-                eps_bern = 0.1
-            else:
-                if eps_bern >= 0.3:
-                    eps_bern = 0.3
-                else:
-                    eps_bern *= 1.1
-
+        if momentum - prev_momentum >= 0:
+            adap_eps *= gamma1
+        if momentum - prev_momentum < 0:
+            adap_eps *= gamma2
+        adap_eps = min(max(adap_eps,eps_bern),0.5)
+        if flag: adap_eps = eps_bern
         # Resets EBS every outer loop iteration
-        ebs = ebstest(delta=delta, epsilon=eps_bern, range_of_rndvar=range_g)
-        ebs_shift_plus = ebstest(delta=delta, epsilon=eps_bern, range_of_rndvar=range_g)
-        ebs_shift_minus = ebstest(delta=delta, epsilon=eps_bern, range_of_rndvar=range_g)
+        ebs = ebstest(delta=delta, epsilon=adap_eps , range_of_rndvar=range_g)
+        ebs_shift_plus = ebstest(delta=delta, epsilon=adap_eps  , range_of_rndvar=range_g)
+        ebs_shift_minus = ebstest(delta=delta, epsilon=adap_eps , range_of_rndvar=range_g)
 
         '''
         Prepare Samples for energy and gradient estimatation
@@ -325,7 +338,6 @@ def vqe_adam_h2_test(hamiltonian_coeff,delta = 0.1,eps_bern= 0.1,max_it = 500,al
         it_normal = 3*ebs.get_step()
         #it_l1 = ebs_l1.get_step()
         est_energy = ebs.get_estimate()
-        est_variance_prev = est_variance
         est_variance = ebs.get_var()[-1]
         energy = expected_value(state_normal, h2_op(hamiltonian_coeff))    
         variance = expected_value(state_normal, np.linalg.matrix_power(
@@ -351,17 +363,22 @@ def vqe_adam_h2_test(hamiltonian_coeff,delta = 0.1,eps_bern= 0.1,max_it = 500,al
         arr_par1.append(par1)
         arr_steps.append(it_normal)
         arr_höf.append(max_sample)
-        arr_max_flag.append(eps_bern)
-        
+        arr_max_flag.append(1*flag)
+        arr_grad1.append(grad1)
+        arr_momentum.append(momentum)
+        arr_epsilon.append(adap_eps)
         # Estimate the Gradient via SPSA method
         grad1 = (energy_shifted_plus-energy_shifted_minus) / (2*eps*rnd1)
         
         # Adam optimizer
+        prev_par = par1
         par1 = adam.updated_alpha(grad1)
+        prev_momentum = momentum
+        momentum = adam.get_momentum()
 
         if flag:
             break
         if np.abs(energy - E_corr) <= eps_bern:
             flag = True
-    return arr_par1, arr_energy,arr_var, arr_est_energy, arr_est_var, arr_steps, arr_höf,arr_max_flag
+    return arr_par1, arr_energy,arr_var, arr_est_energy, arr_est_var, arr_steps, arr_höf,arr_max_flag,arr_grad1,arr_momentum,arr_epsilon
 

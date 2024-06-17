@@ -86,10 +86,14 @@ class dt_const():
     def __init__(self,delta = 0.1,rng = 1,epsilon = 0.1):   
         self.max_sample = hoeffding_bound(delta,epsilon,rng)
         self.delta = delta
-        self.arr = np.ceil((1.1**(np.arange(self.max_sample)))*5)
-        self.k_steps_höf = np.argmax(self.arr >= self.max_sample)-1
 
-        self.val = self.delta/self.k_steps_höf
+        self.k_max = np.rint(np.log(self.max_sample)/np.log(1.1))
+        increments = np.ceil(1.1**np.arange(self.k_max))
+        self.k_max = np.argmax(np.cumsum(increments)>=self.max_sample)
+
+        self.val = self.delta/self.k_max
+        print(np.sum(self.val)<=self.delta)
+
     def inner_func(self):
         return self.val  
          

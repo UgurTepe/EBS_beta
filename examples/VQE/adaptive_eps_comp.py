@@ -13,11 +13,18 @@ plt.rcParams.update({'font.size': 15})
 # Importing own functions
 sys.path.append("./")
 from dep.qm_vqe import *
-eps_bern = 1.6e-3
 
+#eps_bern = 1.6e-3
+eps_bern = 0.1
+print(0.00075188 <= 1.6e-3)
 g = [0.2252, 0.3435, -0.4347, 0.5716, 0.0910, 0.0910] # d = 0.75 Å
-arr_par, arr_energy, arr_var, arr_est_energy, arr_est_var, arr_steps, arr_höf, arr_max_flag = vqe_adam_h2_test(eps_bern=eps_bern,delta=0.1,hamiltonian_coeff=g)
-arr_par2, arr_energy2, arr_var2, arr_est_energy2, arr_est_var2, arr_steps2, arr_höf2, arr_max_flag2 = vqe_adam_h2(eps_bern=eps_bern,delta=0.1,hamiltonian_coeff=g)
+arr_par, arr_energy,arr_var, arr_est_energy, arr_est_var, arr_steps, arr_höf,arr_max_flag,arr_grad1,arr_momentum,arr_epsilon = vqe_adam_h2_test(eps_bern=eps_bern,delta=0.1,hamiltonian_coeff=g)
+arr_par2, arr_energy2,arr_var2, arr_est_energy2, arr_est_var2, arr_steps2, arr_höf2,arr_max_flag2,arr_grad2,arr_momentum2,arr_epsilon2 = vqe_adam_h2(eps_bern=eps_bern,delta=0.1,hamiltonian_coeff=g)
+
+header_file = 'Parameter,Energy,Variance,EstimatedEnergy,EstimatedVariance,SamplesEBS,SamplesHoeffding,ConvergenceBool,Gradient,Momentum,Epsilon'
+
+np.savetxt(f'data.txt', np.transpose([arr_par, arr_energy,arr_var, arr_est_energy, arr_est_var, arr_steps, arr_höf,arr_max_flag,arr_grad1,arr_momentum,arr_epsilon]), delimiter=',',header=header_file)
+np.savetxt(f'data2.txt', np.transpose([arr_par2, arr_energy2,arr_var2, arr_est_energy2, arr_est_var2, arr_steps2, arr_höf2,arr_max_flag2,arr_grad2,arr_momentum2,arr_epsilon2]), delimiter=',',header=header_file)
 
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
 
