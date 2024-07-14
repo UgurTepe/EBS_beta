@@ -92,7 +92,7 @@ class dt_const():
         self.k_max = np.argmax(np.cumsum(increments)>=self.max_sample)
 
         self.val = self.delta/self.k_max
-        print(np.sum(self.val)<=self.delta)
+        #print(np.sum(self.val)<=self.delta)
 
     def inner_func(self):
         return self.val  
